@@ -1,0 +1,8 @@
+name: 'slurm_job_action'
+description: 'Launches a slurm job'
+runs:
+  using: "composite"
+  steps:
+    - name: Generate sbatch script
+      run: echo "Generate sbatch script"
+      shell: bash
