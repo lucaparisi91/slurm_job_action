@@ -1,8 +1,67 @@
 name: 'slurm_job_action'
 description: 'Launches a slurm job'
+inputs:
+  job-name:  # id of input
+    description: 'Slurm job name'
+    required: true
+  time:
+    description: "Maximum time"
+    required: true
+  nodes:
+    description: "Number of nodes"
+    required: true
+  partition:
+    description: "Partition"
+    required: true
+  qos:
+    description: "qos"
+    required: true
+  script:
+    description: "Script to run"
+    required: true
+  ntasks_per_node:
+    description: "Numper of tasks per node"
+    required: true
+  
+
 runs:
   using: "composite"
   steps:
-    - name: Generate sbatch script
-      run: echo "Generate sbatch script"
+    - name: Setup
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+      run: |
+        echo '${{ toJSON(inputs) }}' > $GITHUB_ACTION_PATH/config.yaml
+        cat $GITHUB_ACTION_PATH/config.yaml
+        $GITHUB_ACTION_PATH/setup_python_env.sh
+
       shell: bash
+
+    - name: Generate batch job
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+      run: |
+          source $GITHUB_ACTION_PATH/runner_env/bin/activate
+          python $GITHUB_ACTION_PATH/tools_slurm/generate_batch_script.py $GITHUB_ACTION_PATH/config.yaml > $GITHUB_ACTION_PATH/submit.sh
+          cat $GITHUB_ACTION_PATH/submit.sh
+      
+      shell: bash
+    
+    - name: submit
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+      run: |
+        pid=$(sbatch --parsable $GITHUB_ACTION_PATH/submit.sh )
+        echo "Job submitted $pid"
+        while [[ $(squeue  -j $pid | wc -l ) -ne 1 ]]
+        do
+          sleep 5
+        done
+        echo "pid=$pid" >> "$GITHUB_OUTPUT"
+        echo "Job Output"
+        echo "----------"
+        cat "slurm-${pid}.out"
+      shell: bash
+
+    
+       
